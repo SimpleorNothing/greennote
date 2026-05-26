@@ -20,6 +20,7 @@ greennote/
 - Worker(`src/index.js`)가 API를 처리한다:
   - `GET/PUT  /api/index`        — 기록 목록 `index.json`
   - `GET/PUT/DELETE /api/image/{id}` — 사진
+  - `POST /api/tags`             — Claude Vision으로 태그 자동 생성
 - `/api` 외의 경로는 `public/` 의 정적 파일(env.ASSETS)로 서빙된다.
 - 실제 R2 읽기/쓰기는 서버 측 **Worker**가 처리한다 → 브라우저에 비밀 키가 노출되지 않는다.
 - 사진: 업로드 시 1200px·JPEG로 압축 → R2 객체 `img/{id}`
@@ -41,6 +42,30 @@ greennote/
 
 - Worker에 **Custom domains** 로 원하는 주소를 연결한다 (예: `greennote.simpleornothing.com`).
 - 같은 Worker에서 화면과 `/api`가 함께 서비스되므로 CORS 설정이 필요 없다.
+
+## Claude Vision 해시태그 자동 생성
+
+칠판 사진을 추가하면 **Anthropic Claude Vision**이 칠판 내용을 읽어 한국어 태그 3개를 자동 생성한다.
+태그는 수정·추가·삭제 가능하며, 분석이 실패해도 저장은 정상 동작한다.
+
+### ANTHROPIC_API_KEY 설정
+
+API 키를 코드나 `wrangler.toml`에 직접 넣지 말고 **Cloudflare Secret**으로 관리한다.
+
+**방법 A — CLI (권장)**
+```bash
+wrangler secret put ANTHROPIC_API_KEY
+# 프롬프트가 뜨면 API 키 붙여넣기 → Enter
+```
+
+**방법 B — 대시보드**
+Cloudflare 대시보드 → Workers & Pages → `greennote`
+→ **Settings** → **Variables and Secrets** → **Add secret**
+- 이름: `ANTHROPIC_API_KEY`
+- 값: Anthropic Console에서 발급한 API 키
+
+Secret을 설정하면 재배포 없이 바로 적용된다.
+API 키가 없으면 `/api/tags` 는 빈 배열을 반환하고 나머지 기능은 그대로 동작한다.
 
 ## 접근 보호 (권장)
 
