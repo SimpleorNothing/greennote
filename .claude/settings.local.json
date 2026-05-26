@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell(git add *)",
-      "PowerShell(git push *)"
+      "PowerShell(git push *)",
+      "PowerShell(cd $HOME\\\\greennote; git status)"
     ]
   }
 }
