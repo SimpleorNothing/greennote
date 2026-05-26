@@ -1,8 +1,13 @@
 name = "greennote"
 compatibility_date = "2024-09-23"
-pages_build_output_dir = "."
+main = "src/index.js"
 
-# R2 버킷을 Functions에 바인딩한다.
+# 정적 파일(화면)은 public/ 에서 서빙한다.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# R2 버킷을 Worker에 바인딩한다.
 # binding = 코드에서 env.greennote 로 접근하는 이름
 # bucket_name = 실제 R2 버킷 이름
 [[r2_buckets]]
