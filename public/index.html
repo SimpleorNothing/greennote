@@ -218,22 +218,40 @@ function banner(msg){ const b=document.getElementById('banner'); if(msg){ b.text
 function setTagsLoading(on){
   const el=document.getElementById('fTags');
   const hint=document.getElementById('tagsHint');
+  if(!el) return; // 방어: 요소 없으면 무시
   el.disabled=on;
   if(on){
     el.placeholder='AI가 분석 중이에요…';
-    hint.innerHTML='<span class="spinner"></span><span>칠판 내용을 읽는 중…</span>';
+    if(hint) hint.innerHTML='<span class="spinner"></span><span>칠판 내용을 읽는 중…</span>';
   } else {
     el.placeholder='예) 시험범위 핵심정리 신미양요';
-    hint.innerHTML='';
+    if(hint) hint.innerHTML='';
   }
 }
 
 // 압축된 이미지 Blob을 Worker에 보내 태그 배열을 받아옴
+// ※ 이 함수는 절대 reject하지 않음 — 실패 시 [] 반환
 async function analyzeTags(blob){
-  const res=await fetch('api/tags',{method:'POST',headers:{'content-type':'image/jpeg'},body:blob});
-  if(!res.ok) throw new Error('tags api '+res.status);
-  const d=await res.json();
-  return Array.isArray(d.tags)?d.tags:[];
+  console.log('[GreenNote] 태그 분석 시작 · blob size =', blob?.size, 'type =', blob?.type);
+  try {
+    console.log('[GreenNote] POST api/tags 요청 중…');
+    const res = await fetch('api/tags', {
+      method: 'POST',
+      headers: { 'content-type': 'image/jpeg' },
+      body: blob,
+    });
+    console.log('[GreenNote] /api/tags 응답 status =', res.status);
+    if(!res.ok){
+      console.warn('[GreenNote] /api/tags 실패 (' + res.status + ') — 태그 없이 계속');
+      return [];
+    }
+    const d = await res.json();
+    console.log('[GreenNote] 수신 태그 =', d.tags);
+    return Array.isArray(d.tags) ? d.tags : [];
+  } catch(e) {
+    console.warn('[GreenNote] 태그 fetch 오류 (저장은 정상) :', e.message);
+    return [];
+  }
 }
 
 function compress(file, maxDim=1200, q=0.72){
@@ -283,18 +301,19 @@ function showNextCompose(){
   renderSubjPick();
   document.getElementById('composeOverlay').classList.add('show');
 
-  // Claude Vision으로 태그 자동 생성 (비동기 · 실패해도 저장 가능)
-  const blobForAnalysis=pendingCurrent; // 클로저 캡처
+  // Claude Vision 태그 자동 생성
+  // analyzeTags는 항상 resolve되므로 .catch/.finally 불필요
+  const capturedBlob = pendingCurrent;
+  console.log('[GreenNote] showNextCompose: 태그 분석 시작 · blob size =', capturedBlob?.size);
   setTagsLoading(true);
-  analyzeTags(blobForAnalysis)
-    .then(tags=>{
-      // 모달이 아직 열려 있을 때만 반영 (취소 후엔 무시)
-      if(pendingCurrent===blobForAnalysis){
-        document.getElementById('fTags').value=tags.join(' ');
-      }
-    })
-    .catch(()=>{}) // 실패 시 조용히 무시
-    .finally(()=>setTagsLoading(false));
+  analyzeTags(capturedBlob).then(tags => {
+    console.log('[GreenNote] showNextCompose: 태그 수신 =', tags, '/ 모달 유효?', pendingCurrent === capturedBlob);
+    // 먼저 input 활성화한 뒤 value 설정 (disabled 상태에서 값 설정 시 브라우저별 렌더링 차이 회피)
+    setTagsLoading(false);
+    if(pendingCurrent === capturedBlob){ // 취소 눌렸으면 null이 되므로 비교
+      document.getElementById('fTags').value = tags.join(' ');
+    }
+  });
 }
 
 async function saveCompose(){
